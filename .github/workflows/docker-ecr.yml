@@ -1,0 +1,56 @@
+name: Build and Push Docker Image to ECR
+
+on:
+  push:
+    branches:
+      - dev
+      - test
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Main Code
+      uses: actions/checkout@v3
+
+    - name: Configure SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+    - name: Clone Infraestructura Repo
+      run: git clone git@github.com:NOV-2024-DEVOPS/infraestructura.git
+
+    - name: Load Variables from credenciales.txt
+      run: |
+        export $(grep -v '^#' infraestructura/credenciales.txt | xargs)
+        echo "AWS_ACCESS_KEY_ID=${aws_access_key_id}" >> $GITHUB_ENV
+        echo "AWS_SECRET_ACCESS_KEY=${aws_secret_access_key}" >> $GITHUB_ENV
+        echo "AWS_SESSION_TOKEN=${aws_session_token}" >> $GITHUB_ENV
+        echo "AWS_REGION=${aws_region}" >> $GITHUB_ENV
+        echo "ECR_REPOSITORY=${ecr_repository}" >> $GITHUB_ENV
+        
+        
+        # Configurar valores según la rama
+        if [ "${{ github.ref_name }}" == "dev" ]; then
+          echo "IMAGE_TAG=terraform-dev-repo:shipping-service-latest" >> $GITHUB_ENV
+        elif [ "${{ github.ref_name }}" == "test" ]; then
+          echo "IMAGE_TAG=terraform-test-repo:shipping-service-latest" >> $GITHUB_ENV
+        elif [ "${{ github.ref_name }}" == "main" ]; then
+          echo "IMAGE_TAG=terraform-main-repo:shipping-service-latest" >> $GITHUB_ENV
+        fi
+
+    - name: Log in to Amazon ECR
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    - name: Build, Tag, and Push Docker Image
+      env:
+        ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
+      run: |
+        docker build -t $IMAGE_TAG .
+        docker tag $IMAGE_TAG $ECR_REPOSITORY/$IMAGE_TAG
+        docker push $ECR_REPOSITORY/$IMAGE_TAG
