@@ -33,7 +33,6 @@ jobs:
         echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> $GITHUB_ENV
         echo "ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY }}" >> $GITHUB_ENV
         
-        
         # Configurar valores según la rama
         if [ "${{ github.ref_name }}" == "dev" ]; then
           echo "IMAGE_TAG=terraform-dev-repo:shipping-service-latest" >> $GITHUB_ENV
@@ -43,9 +42,45 @@ jobs:
           echo "IMAGE_TAG=terraform-main-repo:shipping-service-latest" >> $GITHUB_ENV
         fi
 
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Cache SonarCloud analysis tools
+      uses: actions/cache@v4
+      with:
+        path: ~/.sonar/cache
+        key: ${{ runner.os }}-sonar
+        restore-keys: ${{ runner.os }}-sonar
+
+    - name: Cache Maven packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
+
+    - name: Build and analyze with SonarCloud
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=NOV-2024-DEVOPS_shipping-service -Dsonar.organization=nov-2024-devops -Dsonar.host.url=https://sonarcloud.io
+
+    - name: Install Newman
+      run: npm install -g newman
+
+    - name: Run Postman tests
+      run: |
+        newman run "collection.json" \
+          --environment environment.json \
+          --delay-request 100 \
+          --reporters cli,html \
+          --reporter-html-export newman-report.html
+
     - name: Log in to Amazon ECR
       uses: aws-actions/amazon-ecr-login@v2
-    
+
     - name: Build, Tag, and Push Docker Image
       env:
         ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
