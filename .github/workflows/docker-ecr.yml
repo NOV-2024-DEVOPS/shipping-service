@@ -25,14 +25,13 @@ jobs:
     - name: Clone Infraestructura Repo
       run: git clone git@github.com:NOV-2024-DEVOPS/infraestructura.git
 
-    - name: Load Variables from credenciales.txt
+    - name: Load Variables from Organization Secrets
       run: |
-        export $(grep -v '^#' infraestructura/credenciales.txt | xargs)
-        echo "AWS_ACCESS_KEY_ID=${aws_access_key_id}" >> $GITHUB_ENV
-        echo "AWS_SECRET_ACCESS_KEY=${aws_secret_access_key}" >> $GITHUB_ENV
-        echo "AWS_SESSION_TOKEN=${aws_session_token}" >> $GITHUB_ENV
-        echo "AWS_REGION=${aws_region}" >> $GITHUB_ENV
-        echo "ECR_REPOSITORY=${ecr_repository}" >> $GITHUB_ENV
+        echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+        echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+        echo "AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }}" >> $GITHUB_ENV
+        echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> $GITHUB_ENV
+        echo "ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY }}" >> $GITHUB_ENV
         
         
         # Configurar valores según la rama
