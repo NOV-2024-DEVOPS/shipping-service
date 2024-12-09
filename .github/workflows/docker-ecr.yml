@@ -48,6 +48,26 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
+    # Build the application
+    - name: Build the application
+      run: mvn clean package -DskipTests
+
+    # Run the application locally
+    - name: Start Application Locally
+      run: |
+        nohup java -jar target/shipping-service-example-0.0.1-SNAPSHOT.jar --server.port=8081 > app.log 2>&1 &
+        sleep 10 # Wait for the application to start
+
+    # Run Postman tests using Newman
+    - name: Run Functional Tests with Newman
+      run: |
+        newman run "collection.json" \
+          --environment environment.json \
+          --delay-request 100 \
+          --reporters cli,html \
+          --reporter-html-export newman-report.html
+
+    # SonarCloud Analysis
     - name: Cache SonarCloud analysis tools
       uses: actions/cache@v4
       with:
@@ -62,21 +82,11 @@ jobs:
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
 
-    - name: Build and analyze with SonarCloud
+    - name: Analyze with SonarCloud
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=NOV-2024-DEVOPS_shipping-service -Dsonar.organization=nov-2024-devops -Dsonar.host.url=https://sonarcloud.io
 
-    - name: Install Newman
-      run: npm install -g newman
-
-    - name: Run Postman tests
-      run: |
-        newman run "collection.json" \
-          --environment environment.json \
-          --delay-request 100 \
-          --reporters cli,html \
-          --reporter-html-export newman-report.html
 
     - name: Log in to Amazon ECR
       uses: aws-actions/amazon-ecr-login@v2
